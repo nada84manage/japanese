@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7fb">
+  <title>ごはん</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Yu Gothic UI", "Meiryo", sans-serif;
+      color: #172033;
+      background: #f5f7fb;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      --border: #d9e0ea;
+      --muted: #64748b;
+      --blue: #315fe8;
+      --blue-dark: #244bc4;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    body { min-width: 320px; margin: 0; overflow: hidden; }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+
+    .app { display: flex; width: min(100%, 1280px); height: 100dvh; min-height: 0; flex-direction: column; gap: 12px; margin: 0 auto; padding: 16px 24px; }
+    .topbar { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 16px; }
+    h1 { margin: 0; font-size: clamp(20px, 3vw, 27px); letter-spacing: .02em; }
+    .document-title { display: grid; gap: 5px; min-width: 190px; color: #64748b; font-size: 11px; font-weight: 700; }
+    .document-title input { width: 100%; height: 40px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: #29364d; font-size: 13px; }
+    .top-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
+    .button { min-height: 40px; padding: 0 15px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: #29364d; font-weight: 650; }
+    .button:hover { background: #f0f4fb; }
+    .button.primary { border-color: var(--blue); background: var(--blue); color: #fff; }
+    .button.primary:hover { background: var(--blue-dark); }
+    .button.danger { border-color: #efcaca; color: #b42318; }
+    .button:disabled { cursor: not-allowed; opacity: .5; }
+
+    .statusbar { display: flex; flex: 0 0 auto; align-items: center; gap: 9px; min-height: 30px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 7px; background: #fff; color: var(--muted); font-size: 12px; }
+    .status-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
+    .statusbar[data-kind="ready"] .status-dot { background: #16a34a; }
+    .statusbar[data-kind="busy"] .status-dot { background: #e5a500; }
+    .statusbar[data-kind="error"] { border-color: #f2b8b5; background: #fff8f7; color: #a32920; }
+    .statusbar[data-kind="error"] .status-dot { background: #dc2626; }
+    .status-message { flex: 1; }
+    .status-retry { padding: 3px 8px; border: 0; border-radius: 5px; background: transparent; color: var(--blue); font-weight: 700; }
+
+    .workspace { display: grid; min-height: 0; flex: 1 1 auto; grid-template-columns: minmax(360px, 1.08fr) minmax(340px, .92fr); gap: 12px; align-items: stretch; }
+    .panel { display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+    .panel-heading { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 10px 15px; border-bottom: 1px solid var(--border); }
+    .panel-heading h2 { margin: 0; font-size: 15px; }
+    .count { color: var(--muted); font-size: 12px; }
+    .table-wrap { min-height: 0; flex: 1 1 auto; overflow: auto; overscroll-behavior: contain; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th { position: sticky; z-index: 1; top: 0; height: 42px; background: #f7f9fc; color: #526077; font-size: 12px; font-weight: 700; text-align: left; }
+    th:first-child, td:first-child { width: 96px; }
+    th, td { padding: 9px 14px; border-bottom: 1px solid #e8edf3; }
+    td { height: 49px; color: #263248; font-size: 14px; }
+    tbody tr { cursor: pointer; transition: background .12s ease; }
+    tbody tr:hover { background: #f7f9ff; }
+    tbody tr.selected { background: #fff8cb; }
+    tbody tr.draft { color: #8490a2; }
+    tbody tr.draft td { border-bottom-style: dashed; }
+    .page-cell { color: #5c677a; font-variant-numeric: tabular-nums; }
+    .question-cell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .draft-label { color: #8a94a5; font-size: 12px; }
+    .editor { min-height: 0; }
+    .editor-form { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; gap: 14px; padding: 16px; }
+    .field label { display: block; margin-bottom: 8px; color: #475569; font-size: 13px; font-weight: 700; }
+    .field input, .field textarea { display: block; width: 100%; border: 1px solid #ccd5e2; border-radius: 8px; background: #fff; color: #172033; outline: none; }
+    .field input { height: 45px; padding: 0 12px; }
+    .field textarea { min-height: 0; flex: 1 1 auto; padding: 12px; resize: none; line-height: 1.8; }
+    .field input:focus, .field textarea:focus { border-color: #7894f4; box-shadow: 0 0 0 3px #315fe81a; }
+    .editor-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 2px; }
+    .editor-actions { display: flex; gap: 8px; }
+    .keyboard-hint { margin: 0; padding: 12px 18px; border-top: 1px solid #edf0f5; color: #758197; font-size: 11px; line-height: 1.8; }
+    kbd { padding: 2px 5px; border: 1px solid #d5dce6; border-radius: 4px; background: #f7f8fa; color: #526077; font-family: inherit; font-size: 10px; }
+
+    dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 20px 70px #17203330; }
+    dialog::backdrop { background: #16203380; }
+    .dialog-content { padding: 22px; }
+    .dialog-content h2 { margin: 0 0 8px; font-size: 19px; }
+    .dialog-content p { color: #5b6678; font-size: 13px; line-height: 1.8; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .print-output { display: none; }
+    @media (max-width: 780px) {
+      .app { gap: 8px; padding: 10px; }
+      .topbar { gap: 8px; }
+      h1 { font-size: 20px; }
+      .top-actions { justify-content: flex-start; }
+      .document-title { min-width: 120px; }
+      .document-title input { height: 36px; }
+      .workspace { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 8px; }
+      .panel-heading { min-height: 42px; padding: 8px; }
+      .editor-form { gap: 8px; padding: 10px; }
+      .field label { margin-bottom: 4px; }
+      .field input { height: 38px; }
+      .field textarea { padding: 8px; }
+      .editor-footer { align-items: flex-start; flex-direction: column; }
+      .editor-actions { width: 100%; }
+      .editor-actions .button { flex: 1; padding: 0 7px; }
+      .keyboard-hint { padding: 8px; font-size: 10px; }
+    }
+    @media (max-width: 420px) {
+      .app { padding: 8px; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .top-actions { width: 100%; }
+      .document-title { min-width: 0; flex: 1; }
+      .button { min-height: 36px; padding: 0 9px; }
+      .workspace { grid-template-columns: minmax(0, .72fr) minmax(0, 1.28fr); gap: 6px; }
+      th:first-child, td:first-child { width: 55px; }
+      th, td { padding: 7px 5px; }
+      td { font-size: 12px; }
+      .editor-actions { gap: 4px; }
+      .editor-actions .button { font-size: 12px; }
+      .keyboard-hint { font-size: 9px; }
+    }
+    @media (max-height: 620px) {
+      .app { gap: 6px; padding-top: 6px; padding-bottom: 6px; }
+      .panel-heading { min-height: 38px; padding-top: 6px; padding-bottom: 6px; }
+      .editor-form { gap: 6px; padding-top: 8px; padding-bottom: 8px; }
+      .keyboard-hint { padding-top: 5px; padding-bottom: 5px; }
+    }
+
+    @media print {
+      @page { size: A4 portrait; margin: 15mm; }
+      body { min-width: 0; background: #fff; }
+      .app { display: none !important; }
+      .print-output { display: block !important; color: #111; font-family: "Yu Mincho", "Hiragino Mincho ProN", serif; }
+      .print-title { margin: 0 0 18mm; font-size: 16pt; font-weight: 700; writing-mode: vertical-rl; text-orientation: mixed; }
+      .print-groups { writing-mode: vertical-rl; text-orientation: mixed; }
+      .print-group { display: inline-block; vertical-align: top; margin-inline-start: 14mm; break-inside: avoid; }
+      .print-page-label { margin: 0 0 7mm; font-size: 12pt; font-weight: 700; }
+      .tcy { text-combine-upright: all; -webkit-text-combine: horizontal; }
+      .print-questions { display: flex; flex-direction: column; gap: 4mm; margin: 0; padding: 0; list-style: none; }
+      .print-questions li { max-height: 235mm; font-size: 12pt; line-height: 1.9; }
+      .print-questions li::before { content: "・"; }
+      .print-empty { color: #555; font-size: 11pt; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <h1>国語問題</h1>
+      <div class="top-actions">
+        <label class="document-title" for="document-title">PDFタイトル
+          <input id="document-title" type="text" value="ごはん 2組問題" maxlength="100">
+        </label>
+        <button class="button primary" id="export-button" type="button">PDFを書き出し</button>
+      </div>
+    </header>
+
+    <div class="statusbar" id="statusbar" data-kind="busy" role="status" aria-live="polite">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span class="status-message" id="status-message">準備しています…</span>
+      <button class="status-retry" id="retry-button" type="button" hidden>再試行</button>
+    </div>
+
+    <section class="workspace" aria-label="問題カード編集">
+      <section class="panel" aria-labelledby="list-heading">
+        <div class="panel-heading">
+          <h2 id="list-heading">問題一覧</h2>
+          <span class="count" id="card-count">0 問</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">ページ</th><th scope="col">問題</th></tr></thead>
+            <tbody id="card-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel editor" aria-labelledby="editor-heading">
+        <div class="panel-heading">
+          <h2 id="editor-heading">カードを編集</h2>
+          <span class="count" id="selection-label">新しいカード</span>
+        </div>
+        <div class="editor-form">
+          <div class="field">
+            <label for="page-input">ページ</label>
+            <input id="page-input" type="text" inputmode="numeric" placeholder="例：176" autocomplete="off" maxlength="64">
+          </div>
+          <div class="field">
+            <label for="question-input">問題</label>
+            <textarea id="question-input" placeholder="問題文を入力してください" rows="5" maxlength="10000"></textarea>
+          </div>
+          <div class="editor-footer">
+            <div class="editor-actions">
+              <button class="button danger" id="delete-button" type="button" disabled>削除</button>
+              <button class="button" id="new-button" type="button">新規へ</button>
+              <button class="button primary" id="next-button" type="button">次へ</button>
+            </div>
+          </div>
+        </div>
+        <p class="keyboard-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> 次へ（1つ下の行）　<kbd>Alt</kbd> + <kbd>Enter</kbd> 新規へ<br><kbd>Delete</kbd> 削除　確認後 <kbd>Y</kbd> で削除 / <kbd>N</kbd> で取消</p>
+      </section>
+    </section>
+  </main>
+
+  <section class="print-output" id="print-output" aria-label="PDF印刷内容"></section>
+
+  <dialog id="delete-dialog" aria-labelledby="delete-heading">
+    <div class="dialog-content">
+      <h2 id="delete-heading">このカードを削除しますか？</h2>
+      <p>削除すると元に戻せません。<kbd>Y</kbd> で削除、<kbd>N</kbd> または <kbd>Esc</kbd> で取り消します。</p>
+      <div class="dialog-actions">
+        <button class="button" id="cancel-delete" type="button">いいえ（N）</button>
+        <button class="button danger" id="confirm-delete" type="button">削除（Y）</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const STORAGE_KEYS = {
+        cards: "kokugo-question-cards",
+        title: "kokugo-document-title"
+      };
+      const localMode = location.protocol === "file:";
+      const elements = {
+        rows: document.getElementById("card-rows"),
+        count: document.getElementById("card-count"),
+        selection: document.getElementById("selection-label"),
+        page: document.getElementById("page-input"),
+        question: document.getElementById("question-input"),
+        title: document.getElementById("document-title"),
+        deleteButton: document.getElementById("delete-button"),
+        status: document.getElementById("statusbar"),
+        statusMessage: document.getElementById("status-message"),
+        retry: document.getElementById("retry-button"),
+        deleteDialog: document.getElementById("delete-dialog")
+      };
+
+      let cards = [];
+      let selectedId = null;
+      let saveTimer = null;
+      let saving = Promise.resolve();
+      let pendingDelete = false;
+      let lastSaveError = null;
+
+      function setStatus(message, kind = "ready", retryable = false) {
+        elements.status.dataset.kind = kind;
+        elements.statusMessage.textContent = message;
+        elements.retry.hidden = !retryable;
+      }
+
+      function currentIndex() {
+        return cards.findIndex((card) => card.id === selectedId);
+      }
+
+      function selectedCard() {
+        const index = currentIndex();
+        return index === -1 ? null : cards[index];
+      }
+
+      function updateEditor() {
+        const card = selectedCard();
+        elements.page.value = card ? card.page : (cards.at(-1)?.page ?? "");
+        elements.question.value = card?.question ?? "";
+        elements.selection.textContent = card ? `カード ${currentIndex() + 1}` : "新しいカード";
+        elements.deleteButton.disabled = !card;
+        renderRows();
+      }
+
+      function renderRows() {
+        elements.rows.replaceChildren();
+        cards.forEach((card, index) => {
+          const row = document.createElement("tr");
+          row.dataset.id = card.id;
+          row.tabIndex = 0;
+          row.setAttribute("aria-label", `カード ${index + 1}、ページ ${card.page || "未入力"}、${card.question || "問題未入力"}`);
+          if (card.id === selectedId) row.classList.add("selected");
+          const page = document.createElement("td");
+          page.className = "page-cell";
+          page.textContent = card.page || "—";
+          const question = document.createElement("td");
+          question.className = "question-cell";
+          question.textContent = card.question || "（問題未入力）";
+          row.append(page, question);
+          row.addEventListener("click", () => selectCard(card.id));
+          row.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              selectCard(card.id);
+            }
+          });
+          elements.rows.append(row);
+        });
+
+        const draft = document.createElement("tr");
+        draft.className = "draft";
+        draft.tabIndex = 0;
+        draft.setAttribute("aria-label", "新しい空のカード");
+        if (selectedId === null) draft.classList.add("selected");
+        const draftPage = document.createElement("td");
+        draftPage.className = "draft-label";
+        draftPage.textContent = "新規";
+        const draftQuestion = document.createElement("td");
+        draftQuestion.className = "draft-label";
+        draftQuestion.textContent = "新しい問題を入力";
+        draft.append(draftPage, draftQuestion);
+        draft.addEventListener("click", focusDraft);
+        draft.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            focusDraft();
+          }
+        });
+        elements.rows.append(draft);
+        elements.count.textContent = `${cards.length} 問`;
+      }
+
+      function selectCard(id) {
+        selectedId = id;
+        updateEditor();
+      }
+
+      function focusDraft() {
+        selectedId = null;
+        updateEditor();
+        elements.page.focus();
+      }
+
+      function nextCard() {
+        const index = currentIndex();
+        if (index >= 0 && index < cards.length - 1) {
+          selectCard(cards[index + 1].id);
+          elements.page.focus();
+        } else {
+          focusDraft();
+        }
+      }
+
+      function applyEditorChange() {
+        const page = elements.page.value;
+        const question = elements.question.value;
+        let card = selectedCard();
+        if (!card && !page.trim() && !question.trim()) return;
+
+        if (!card) {
+          card = { id: crypto.randomUUID(), position: cards.length, page: "", question: "" };
+          cards.push(card);
+          selectedId = card.id;
+        }
+
+        card.page = page;
+        card.question = question;
+        card.position = cards.indexOf(card);
+        elements.selection.textContent = `カード ${currentIndex() + 1}`;
+        elements.deleteButton.disabled = false;
+        renderRows();
+        scheduleSave();
+      }
+
+      function scheduleSave() {
+        clearTimeout(saveTimer);
+        setStatus("保存中", "busy");
+        saveTimer = setTimeout(() => {
+          const snapshot = cards.map((card, position) => ({ ...card, position }));
+          saving = saving.then(() => saveSnapshot(snapshot)).catch((error) => {
+            console.error("カードを保存できませんでした。", error);
+            lastSaveError = error;
+            setStatus(`保存失敗: ${error.message}`, "error", true);
+          });
+        }, 350);
+      }
+
+      async function saveSnapshot(snapshot) {
+        if (localMode) {
+          localStorage.setItem(STORAGE_KEYS.cards, JSON.stringify(snapshot));
+        } else if (snapshot.length > 0) {
+          const response = await fetch("/api/cards", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(snapshot.map(({ id, position, page, question }) => ({ id, position, page, question })))
+          });
+          if (!response.ok) throw new Error(await responseError(response));
+        }
+        setStatus("保存済み", "ready");
+        lastSaveError = null;
+      }
+
+      async function responseError(response) {
+        const details = await response.text();
+        return `${response.status}: ${details || response.statusText}`;
+      }
+
+      async function loadCards() {
+        setStatus("読み込み中", "busy");
+        let data;
+        if (localMode) {
+          data = JSON.parse(localStorage.getItem(STORAGE_KEYS.cards) || "[]");
+        } else {
+          const response = await fetch("/api/cards");
+          if (!response.ok) throw new Error(await responseError(response));
+          data = await response.json();
+        }
+        if (!Array.isArray(data)) throw new Error("カードデータの形式が正しくありません。");
+        cards = data.map((item, index) => ({
+          id: typeof item.id === "string" ? item.id : crypto.randomUUID(),
+          position: Number.isInteger(item.position) ? item.position : index,
+          page: typeof item.page === "string" ? item.page : "",
+          question: typeof item.question === "string" ? item.question : ""
+        }));
+        setStatus("保存済み", "ready");
+        selectedId = null;
+        updateEditor();
+      }
+
+      async function removeSelectedCard() {
+        const card = selectedCard();
+        if (!card) return;
+        clearTimeout(saveTimer);
+        try {
+          if (!localMode) {
+            const response = await fetch(`/api/cards?id=${encodeURIComponent(card.id)}`, { method: "DELETE" });
+            if (!response.ok) throw new Error(await responseError(response));
+          }
+          cards.splice(currentIndex(), 1);
+          cards.forEach((item, index) => { item.position = index; });
+          selectedId = null;
+          updateEditor();
+          scheduleSave();
+        } catch (error) {
+          console.error("カードを削除できませんでした。", error);
+          setStatus(`削除失敗: ${error.message}`, "error", true);
+        }
+      }
+
+      function openDeleteConfirmation() {
+        if (!selectedCard()) return;
+        pendingDelete = true;
+        elements.deleteDialog.showModal();
+        document.getElementById("confirm-delete").focus();
+      }
+
+      function cancelDeleteConfirmation() {
+        pendingDelete = false;
+        elements.deleteDialog.close();
+      }
+
+      function addText(parent, tag, text, className) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        node.textContent = text;
+        parent.append(node);
+        return node;
+      }
+
+      function formatVerticalRuns(text) {
+        const fragment = document.createDocumentFragment();
+        const parts = text.split(/([A-Za-z]+|[0-9]+)/g);
+        for (const part of parts) {
+          if (!part) continue;
+          const match = part.match(/^([A-Za-z]+|[0-9]+)$/);
+          if (match) addText(fragment, "span", part, "tcy");
+          else fragment.append(document.createTextNode(part));
+        }
+        return fragment;
+      }
+
+      function exportPdf() {
+        const output = document.getElementById("print-output");
+        output.replaceChildren();
+        const heading = addText(output, "h1", "", "print-title");
+        heading.append(formatVerticalRuns(elements.title.value.trim() || "国語問題"));
+
+        const grouped = new Map();
+        for (const card of cards) {
+          const page = card.page || "（ページ未入力）";
+          if (!grouped.has(page)) grouped.set(page, []);
+          if (card.question) grouped.get(page).push(card.question);
+        }
+
+        if (grouped.size === 0) {
+          addText(output, "p", "問題がありません。", "print-empty");
+        }
+        const groups = document.createElement("div");
+        groups.className = "print-groups";
+        for (const [page, questions] of grouped) {
+          const group = document.createElement("section");
+          group.className = "print-group";
+          const label = document.createElement("h2");
+          label.className = "print-page-label";
+          label.append(document.createTextNode("P"));
+          label.append(formatVerticalRuns(page));
+          group.append(label);
+          const list = document.createElement("ul");
+          list.className = "print-questions";
+          for (const question of questions) {
+            const item = document.createElement("li");
+            item.append(formatVerticalRuns(question));
+            list.append(item);
+          }
+          group.append(list);
+          groups.append(group);
+        }
+        output.append(groups);
+        window.print();
+      }
+
+      document.getElementById("next-button").addEventListener("click", nextCard);
+      document.getElementById("new-button").addEventListener("click", focusDraft);
+      elements.page.addEventListener("input", applyEditorChange);
+      elements.question.addEventListener("input", applyEditorChange);
+      elements.title.value = localStorage.getItem(STORAGE_KEYS.title) || elements.title.value;
+      elements.title.addEventListener("change", () => {
+        try {
+          localStorage.setItem(STORAGE_KEYS.title, elements.title.value);
+        } catch (error) {
+          console.error("PDFタイトルを保存できませんでした。", error);
+          setStatus(`タイトルを保存できませんでした: ${error.message}`, "error");
+        }
+      });
+      elements.deleteButton.addEventListener("click", openDeleteConfirmation);
+      document.getElementById("confirm-delete").addEventListener("click", async () => {
+        cancelDeleteConfirmation();
+        await removeSelectedCard();
+      });
+      document.getElementById("cancel-delete").addEventListener("click", cancelDeleteConfirmation);
+      elements.deleteDialog.addEventListener("close", () => { pendingDelete = false; });
+      document.getElementById("export-button").addEventListener("click", exportPdf);
+      elements.retry.addEventListener("click", async () => {
+        if (lastSaveError) {
+          lastSaveError = null;
+          scheduleSave();
+          return;
+        }
+        try {
+          await loadCards();
+        } catch (error) {
+          console.error("再読み込みできませんでした。", error);
+          setStatus(`再読み込みできませんでした: ${error.message}`, "error", true);
+        }
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (elements.deleteDialog.open) {
+          if (event.key.toLowerCase() === "y") {
+            event.preventDefault();
+            document.getElementById("confirm-delete").click();
+          } else if (event.key.toLowerCase() === "n") {
+            event.preventDefault();
+            cancelDeleteConfirmation();
+          }
+          return;
+        }
+        if (event.key === "Enter" && event.ctrlKey) {
+          event.preventDefault();
+          nextCard();
+        } else if (event.key === "Enter" && event.altKey) {
+          event.preventDefault();
+          focusDraft();
+        } else if (event.key === "Delete" && selectedCard() &&
+          !["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) {
+          event.preventDefault();
+          openDeleteConfirmation();
+        }
+      });
+
+      loadCards().catch((error) => {
+        console.error("カードを読み込めませんでした。", error);
+        setStatus(`読み込めませんでした: ${error.message}`, "error", true);
+        updateEditor();
+      });
+    })();
+  </script>
+</body>
+</html>
